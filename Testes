@@ -1,0 +1,97 @@
+-- Basic Mobile-Friendly UI Mod Menu
+local ScreenGui = Instance.new("ScreenGui")
+local Frame = Instance.new("Frame")
+local UICorner = Instance.new("UICorner")
+local flyBtn = Instance.new("TextButton")
+local speedBtn = Instance.new("TextButton")
+local espBtn = Instance.new("TextButton")
+
+-- Parent GUI
+ScreenGui.Parent = game.CoreGui
+ScreenGui.Name = "ModMenuMobile"
+
+Frame.Size = UDim2.new(0, 150, 0, 180)
+Frame.Position = UDim2.new(0, 10, 0.4, 0)
+Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Frame.Parent = ScreenGui
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = Frame
+
+-- Button Template Function
+local function setupButton(btn, text, yPos)
+	btn.Size = UDim2.new(0, 130, 0, 40)
+	btn.Position = UDim2.new(0, 10, 0, yPos)
+	btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+	btn.TextColor3 = Color3.new(1,1,1)
+	btn.Font = Enum.Font.Gotham
+	btn.TextSize = 14
+	btn.Text = text
+	btn.Parent = Frame
+end
+
+-- Fly
+setupButton(flyBtn, "Fly", 10)
+local flying = false
+flyBtn.MouseButton1Click:Connect(function()
+	local player = game.Players.LocalPlayer
+	local char = player.Character or player.CharacterAdded:Wait()
+	local hrp = char:WaitForChild("HumanoidRootPart")
+
+	flying = not flying
+	if flying then
+		local bv = Instance.new("BodyVelocity", hrp)
+		bv.Name = "FlyForce"
+		bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+		bv.Velocity = Vector3.new(0, 50, 0)
+	else
+		if hrp:FindFirstChild("FlyForce") then
+			hrp:FindFirstChild("FlyForce"):Destroy()
+		end
+	end
+end)
+
+-- Speed
+setupButton(speedBtn, "Speed", 60)
+local speeding = false
+speedBtn.MouseButton1Click:Connect(function()
+	local human = game.Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+	if human then
+		if not speeding then
+			human.WalkSpeed = 100
+			speeding = true
+		else
+			human.WalkSpeed = 16
+			speeding = false
+		end
+	end
+end)
+
+-- ESP
+setupButton(espBtn, "ESP", 110)
+local espEnabled = false
+espBtn.MouseButton1Click:Connect(function()
+	local players = game:GetService("Players")
+	espEnabled = not espEnabled
+
+	for _, p in pairs(players:GetPlayers()) do
+		if p ~= players.LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
+			if espEnabled then
+				local bbg = Instance.new("BillboardGui", p.Character.Head)
+				bbg.Name = "ESP"
+				bbg.Size = UDim2.new(0, 100, 0, 40)
+				bbg.StudsOffset = Vector3.new(0, 3, 0)
+				bbg.AlwaysOnTop = true
+
+				local label = Instance.new("TextLabel", bbg)
+				label.Size = UDim2.new(1, 0, 1, 0)
+				label.BackgroundTransparency = 1
+				label.Text = p.Name
+				label.TextColor3 = Color3.new(1, 0, 0)
+			else
+				if p.Character.Head:FindFirstChild("ESP") then
+					p.Character.Head.ESP:Destroy()
+				end
+			end
+		end
+	end
+end)
