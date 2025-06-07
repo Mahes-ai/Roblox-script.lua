@@ -1,0 +1,214 @@
+-- Roblox Script using Orion Library for Flying, Speed Boost, and NoClip
+-- Fully functional universal script with own menu and tabs
+
+-- Load Orion Library
+local OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/shlexware/Orion/main/source')))()
+
+-- Create window
+local Window = OrionLib:MakeWindow({Name = "Universal Script", HidePremium = false, SaveConfig = true, ConfigFolder = "UniversalScriptConfig"})
+
+-- Player and Variables
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+
+-- Flight variables
+local flying = false
+local flySpeed = 50
+local bodyGyro, bodyVelocity
+
+-- Speed Boost variables
+local speedBoostEnabled = false
+local baseWalkSpeed = humanoid.WalkSpeed
+local speedBoostAmount = 30
+
+-- NoClip variables
+local noclipEnabled = false
+
+-- Utility function to update character in case of respawn
+local function getCharacterStuff()
+    character = player.Character or player.CharacterAdded:Wait()
+    humanoid = character:WaitForChild("Humanoid")
+end
+
+player.CharacterAdded:Connect(function()
+    wait(1) -- small delay to load character parts
+    getCharacterStuff()
+    -- reset states on respawn
+    flying = false
+    speedBoostEnabled = false
+    noclipEnabled = false
+    humanoid.WalkSpeed = baseWalkSpeed
+    if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
+    if bodyVelocity then bodyVelocity:Destroy() bodyVelocity = nil end
+end)
+
+-- Flight Functionality
+local function startFly()
+    if flying then return end
+    flying = true
+
+    local rootPart = character:WaitForChild("HumanoidRootPart")
+
+    bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.P = 9e4
+    bodyGyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+    bodyGyro.CFrame = rootPart.CFrame
+    bodyGyro.Parent = rootPart
+
+    bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.Velocity = Vector3.new(0,0,0)
+    bodyVelocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+    bodyVelocity.Parent = rootPart
+
+    -- Input handling for flying movement
+    local UIS = game:GetService("UserInputService")
+
+    local direction = Vector3.new()
+
+    local function updateVelocity()
+        if not flying then return end
+        local camCF = workspace.CurrentCamera.CFrame
+
+        direction = Vector3.new()
+
+        if UIS:IsKeyDown(Enum.KeyCode.W) then
+            direction = direction + camCF.LookVector
+        end
+        if UIS:IsKeyDown(Enum.KeyCode.S) then
+            direction = direction - camCF.LookVector
+        end
+        if UIS:IsKeyDown(Enum.KeyCode.A) then
+            direction = direction - camCF.RightVector
+        end
+        if UIS:IsKeyDown(Enum.KeyCode.D) then
+            direction = direction + camCF.RightVector
+        end
+        if UIS:IsKeyDown(Enum.KeyCode.Space) then
+            direction = direction + Vector3.new(0,1,0)
+        end
+        if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then
+            direction = direction - Vector3.new(0,1,0)
+        end
+
+        if direction.Magnitude > 0 then
+            direction = direction.Unit * flySpeed
+        end
+
+        bodyVelocity.Velocity = direction
+        bodyGyro.CFrame = camCF
+    end
+
+    -- Run updateVelocity every frame
+    local heartbeat
+    heartbeat = game:GetService("RunService").Heartbeat:Connect(function()
+        if not flying then
+            heartbeat:Disconnect()
+            return
+        end
+        updateVelocity()
+    end)
+end
+
+local function stopFly()
+    flying = false
+    if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
+    if bodyVelocity then bodyVelocity:Destroy() bodyVelocity = nil end
+end
+
+-- Speed Boost Functionality
+local speedLabel
+
+local function updateSpeedLabel()
+    if not speedLabel then return end
+    speedLabel.Text = "Speed: " .. tostring(humanoid.WalkSpeed)
+end
+
+local function startSpeedBoost()
+    speedBoostEnabled = true
+    humanoid.WalkSpeed = baseWalkSpeed + speedBoostAmount
+    updateSpeedLabel()
+end
+
+local function stopSpeedBoost()
+    speedBoostEnabled = false
+    humanoid.WalkSpeed = baseWalkSpeed
+    updateSpeedLabel()
+end
+
+-- NoClip Functionality
+local function setNoClip(enable)
+    noclipEnabled = enable
+    if noclipEnabled then
+        -- no collision for all parts except HumanoidRootPart in character
+        game:GetService("RunService").Stepped:Connect(function()
+            if noclipEnabled and character and character.Parent then
+                for _, part in pairs(character:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
+    else
+        -- Restore collider on character parts
+        if character and character.Parent then
+            for _, part in pairs(character:GetChildren()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
+                end
+            end
+        end
+    end
+end
+
+-- UI Setup
+
+local MainTab = Window:MakeTab({
+    Name = "Main",
+    Icon = "rbxassetid://4483345998",
+    PremiumOnly = false
+})
+
+-- Flight Toggle
+MainTab:AddToggle({
+    Name = "Fly",
+    Default = false,
+    Callback = function(value)
+        if value then
+            startFly()
+        else
+            stopFly()
+        end
+    end
+})
+
+-- Speed Boost Toggle and Speed Indicator
+MainTab:AddToggle({
+    Name = "Speed Boost",
+    Default = false,
+    Callback = function(value)
+        if value then
+            startSpeedBoost()
+        else
+            stopSpeedBoost()
+        end
+    end
+})
+
+-- Speed Indicator Label added to the window
+speedLabel = MainTab:AddLabel("Speed: " .. tostring(humanoid.WalkSpeed))
+
+-- NoClip Toggle
+MainTab:AddToggle({
+    Name = "NoClip",
+    Default = false,
+    Callback = function(value)
+        setNoClip(value)
+    end
+})
+
+-- Save config
+OrionLib:Init()
+
+print("Universal Script with Orion Library loaded successfully.")
