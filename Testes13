@@ -1,0 +1,164 @@
+-- Orion UI Loader
+local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Orion/main/source"))()
+
+local Window = OrionLib:MakeWindow({
+    Name = "🌐 Universal Mod Menu | Orion UI",
+    HidePremium = false,
+    SaveConfig = true,
+    ConfigFolder = "UniversalModMenu"
+})
+
+-- Services & Player Vars
+local player = game.Players.LocalPlayer
+local char = player.Character or player.CharacterAdded:Wait()
+local humanoid = char:WaitForChild("Humanoid")
+local runService = game:GetService("RunService")
+
+-- State Variables
+local flying = false
+local noclip = false
+local espEnabled = false
+
+-- Fly Function
+local function startFly()
+    local bp = Instance.new("BodyPosition", char.HumanoidRootPart)
+    bp.D = 10
+    bp.MaxForce = Vector3.new(400000, 400000, 400000)
+    local bg = Instance.new("BodyGyro", char.HumanoidRootPart)
+    bg.MaxTorque = Vector3.new(400000, 400000, 400000)
+    flying = true
+
+    OrionLib:MakeNotification({
+        Name = "Fly Enabled",
+        Content = "Use joystick to move",
+        Image = "rbxassetid://4483345998",
+        Time = 3
+    })
+
+    runService.RenderStepped:Connect(function()
+        if flying then
+            local cam = workspace.CurrentCamera
+            local direction = Vector3.new(0,0,0)
+            pcall(function()
+                direction = cam.CFrame.LookVector * 2
+            end)
+            bp.Position = char.HumanoidRootPart.Position + direction
+            bg.CFrame = cam.CFrame
+        end
+    end)
+end
+
+local function stopFly()
+    flying = false
+    for _, v in pairs(char.HumanoidRootPart:GetChildren()) do
+        if v:IsA("BodyPosition") or v:IsA("BodyGyro") then
+            v:Destroy()
+        end
+    end
+end
+
+-- Main Tab
+local MainTab = Window:MakeTab({ Name = "Main", Icon = "rbxassetid://7734053490", PremiumOnly = false })
+
+MainTab:AddToggle({
+    Name = "Fly (Creative Style)",
+    Default = false,
+    Callback = function(v)
+        if v then startFly() else stopFly() end
+    end
+})
+
+MainTab:AddSlider({
+    Name = "WalkSpeed",
+    Min = 16,
+    Max = 200,
+    Default = 16,
+    Callback = function(v)
+        humanoid.WalkSpeed = v
+    end
+})
+
+-- Noclip (Mobile Safe)
+local function toggleNoclip(state)
+    noclip = state
+    if noclip then
+        runService.Stepped:Connect(function()
+            if noclip and char then
+                for _, p in pairs(char:GetDescendants()) do
+                    if p:IsA("BasePart") then
+                        p.CanCollide = false
+                    end
+                end
+            end
+        end)
+    end
+end
+
+local NoclipTab = Window:MakeTab({ Name = "Noclip", Icon = "rbxassetid://7733975025", PremiumOnly = false })
+
+NoclipTab:AddToggle({
+    Name = "Noclip (Toggle)",
+    Default = false,
+    Callback = function(v)
+        toggleNoclip(v)
+    end
+})
+
+-- ESP
+local function toggleESP(state)
+    espEnabled = state
+    for _, plr in pairs(game.Players:GetPlayers()) do
+        if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = plr.Character.HumanoidRootPart
+            if state then
+                local box = Instance.new("BoxHandleAdornment")
+                box.Name = "ESPBox"
+                box.Adornee = hrp
+                box.Size = Vector3.new(4, 5, 1)
+                box.Transparency = 0.5
+                box.Color3 = Color3.new(1, 0, 0)
+                box.AlwaysOnTop = true
+                box.ZIndex = 5
+                box.Parent = hrp
+            else
+                local existing = hrp:FindFirstChild("ESPBox")
+                if existing then existing:Destroy() end
+            end
+        end
+    end
+end
+
+local VisualsTab = Window:MakeTab({ Name = "Visuals", Icon = "rbxassetid://7733960981", PremiumOnly = false })
+
+VisualsTab:AddToggle({
+    Name = "ESP (Box)",
+    Default = false,
+    Callback = function(v)
+        toggleESP(v)
+    end
+})
+
+-- Anti-AFK
+local AutoTab = Window:MakeTab({ Name = "Auto", Icon = "rbxassetid://7734022340", PremiumOnly = false })
+
+AutoTab:AddToggle({
+    Name = "Anti-AFK",
+    Default = true,
+    Callback = function(enabled)
+        if enabled then
+            local vu = game:GetService("VirtualUser")
+            player.Idled:Connect(function()
+                vu:Button2Down(Vector2.new(), workspace.CurrentCamera.CFrame)
+                wait(1)
+                vu:Button2Up(Vector2.new(), workspace.CurrentCamera.CFrame)
+            end)
+        end
+    end
+})
+
+-- Credits
+local CreditTab = Window:MakeTab({ Name = "Credits", Icon = "rbxassetid://7733658504", PremiumOnly = false })
+CreditTab:AddParagraph("Script by", "ChatGPT | Orion UI Universal Edition")
+
+-- Init Orion UI
+OrionLib:Init()
