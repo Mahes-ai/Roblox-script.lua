@@ -1,0 +1,54 @@
+-- MOD MENU: Fly, Speed, ESP, Ghost Noclip, AntiHit, AntiAFK
+local Players, RunService, UIS = game:GetService("Players"), game:GetService("RunService"), game:GetService("UserInputService")
+local player, char = Players.LocalPlayer, Players.LocalPlayer.Character or Players.LocalPlayer.CharacterAdded:Wait()
+local hrp, hum = char:WaitForChild("HumanoidRootPart"), char:WaitForChild("Humanoid")
+
+local gui = Instance.new("ScreenGui", game.CoreGui)
+gui.ResetOnSpawn = false
+
+local function makeBtn(name, pos, callback)
+	local b = Instance.new("TextButton", gui)
+	b.Size = UDim2.new(0, 140, 0, 40)
+	b.Position = pos
+	b.Text = name
+	b.BackgroundColor3 = Color3.fromRGB(30,30,30)
+	b.TextColor3 = Color3.new(1,1,1)
+	b.TextScaled = true
+	b.MouseButton1Click:Connect(callback)
+	return b
+end
+
+-- Fly
+local flying = false
+local flyConn, att0, att1, alignPos, alignOri
+makeBtn("Fly", UDim2.new(0,10,0,10), function()
+	flying = not flying
+	if flying then
+		local cam = workspace.CurrentCamera
+		att0, att1 = Instance.new("Attachment", hrp), Instance.new("Attachment", workspace.Terrain)
+		alignPos = Instance.new("AlignPosition", hrp)
+		alignPos.Attachment0, alignPos.Attachment1 = att0, att1
+		alignPos.MaxForce, alignPos.Responsiveness = math.huge, 200
+		alignPos.RigidityEnabled = false
+
+		alignOri = Instance.new("AlignOrientation", hrp)
+		alignOri.Attachment0, alignOri.Attachment1 = att0, att1
+		alignOri.MaxTorque, alignOri.Responsiveness = math.huge, 200
+		alignOri.RigidityEnabled = false
+
+		hum.PlatformStand = true
+		flyConn = RunService.RenderStepped:Connect(function()
+			local dir = Vector3.zero
+			local cf = cam.CFrame
+			if UIS:IsKeyDown(Enum.KeyCode.W) then dir += cf.LookVector end
+			if UIS:IsKeyDown(Enum.KeyCode.S) then dir -= cf.LookVector end
+			if UIS:IsKeyDown(Enum.KeyCode.A) then dir -= cf.RightVector end
+			if UIS:IsKeyDown(Enum.KeyCode.D) then dir += cf.RightVector end
+			if UIS:IsKeyDown(Enum.KeyCode.Space) then dir += cf.UpVector end
+			if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then dir -= cf.UpVector end
+			att1.Position = hrp.Position + (dir.Magnitude > 0 and dir.Unit * 50 or Vector3.zero)
+			att1.CFrame = cf
+		end)
+	else
+		if flyConn then flyConn:Disconnect() end
+		for _, o in pairs({att0, att1, alignPos, alignOri}) do if o then
