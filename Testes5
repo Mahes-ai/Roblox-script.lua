@@ -1,0 +1,201 @@
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local player = game.Players.LocalPlayer
+
+-- Update char refs
+local function getChar()
+	local character = player.Character or player.CharacterAdded:Wait()
+	local humanoid = character:WaitForChild("Humanoid")
+	local hrp = character:WaitForChild("HumanoidRootPart")
+	return character, humanoid, hrp
+end
+
+local char, humanoid, hrp = getChar()
+player.CharacterAdded:Connect(function()
+	char, humanoid, hrp = getChar()
+end)
+
+-- Create ScreenGui
+local screenGui = Instance.new("ScreenGui", game.CoreGui)
+screenGui.Name = "ModMenuGui"
+
+-- Drag icon button
+local dragBtn = Instance.new("TextButton", screenGui)
+dragBtn.Text = "⚙️"
+dragBtn.Size = UDim2.new(0, 45, 0, 45)
+dragBtn.Position = UDim2.new(0, 20, 0.4, 0)
+dragBtn.BackgroundColor3 = Color3.fromRGB(30,30,30)
+dragBtn.TextColor3 = Color3.fromRGB(255,255,255)
+dragBtn.Font = Enum.Font.GothamBold
+dragBtn.TextSize = 30
+dragBtn.BorderSizePixel = 0
+dragBtn.AutoButtonColor = false
+dragBtn.ZIndex = 1000
+dragBtn.Active = true
+dragBtn.Selectable = true
+dragBtn.Draggable = true
+
+-- Main frame
+local mainFrame = Instance.new("Frame", screenGui)
+mainFrame.Size = UDim2.new(0, 230, 0, 280)
+mainFrame.Position = UDim2.new(0, 70, 0.35, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+mainFrame.Visible = false
+mainFrame.ZIndex = 999
+local uicorner = Instance.new("UICorner", mainFrame)
+uicorner.CornerRadius = UDim.new(0, 15)
+
+-- Title label
+local title = Instance.new("TextLabel", mainFrame)
+title.Text = "Mod Menu"
+title.Size = UDim2.new(1, 0, 0, 40)
+title.BackgroundTransparency = 1
+title.TextColor3 = Color3.fromRGB(170, 170, 170)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 24
+
+-- Close button
+local closeBtn = Instance.new("TextButton", mainFrame)
+closeBtn.Text = "X"
+closeBtn.Size = UDim2.new(0, 30, 0, 30)
+closeBtn.Position = UDim2.new(1, -35, 0, 5)
+closeBtn.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+closeBtn.TextColor3 = Color3.fromRGB(255,255,255)
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 20
+closeBtn.AutoButtonColor = true
+closeBtn.ZIndex = 1001
+closeBtn.MouseButton1Click:Connect(function()
+	mainFrame.Visible = false
+end)
+
+-- Toggle main frame visibility on dragBtn click
+dragBtn.MouseButton1Click:Connect(function()
+	mainFrame.Visible = not mainFrame.Visible
+end)
+
+-- Tabs container
+local tabsFrame = Instance.new("Frame", mainFrame)
+tabsFrame.Size = UDim2.new(1, 0, 0, 40)
+tabsFrame.Position = UDim2.new(0, 0, 0, 40)
+tabsFrame.BackgroundTransparency = 1
+
+local tabNames = {"Fly", "Speed", "Noclip"}
+local tabButtons = {}
+local tabContents = {}
+
+-- Utility: Create toggle switch
+local function createSwitch(parent, pos)
+	local frame = Instance.new("Frame", parent)
+	frame.Size = UDim2.new(0, 50, 0, 25)
+	frame.Position = pos
+	frame.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+	frame.ClipsDescendants = true
+	frame.Active = true
+	frame.AnchorPoint = Vector2.new(0, 0)
+	
+	local circle = Instance.new("Frame", frame)
+	circle.Size = UDim2.new(0, 23, 0, 23)
+	circle.Position = UDim2.new(0, 2, 0, 1)
+	circle.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+	circle.BorderSizePixel = 0
+	circle.Name = "Circle"
+	circle.ZIndex = 2
+	
+	local toggled = false
+	local function toggle(state)
+		toggled = state
+		if toggled then
+			frame.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+			circle:TweenPosition(UDim2.new(1, -25, 0, 1), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.25, true)
+		else
+			frame.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+			circle:TweenPosition(UDim2.new(0, 2, 0, 1), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.25, true)
+		end
+	end
+	
+	frame.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			toggle(not toggled)
+			if frame.ChangedCallback then
+				frame.ChangedCallback(toggled)
+			end
+		end
+	end)
+	
+	frame.Toggle = toggle
+	frame.GetState = function() return toggled end
+	return frame
+end
+
+-- Create tabs and content frames
+for i, name in ipairs(tabNames) do
+	-- Tab button
+	local tabBtn = Instance.new("TextButton", tabsFrame)
+	tabBtn.Text = name
+	tabBtn.Size = UDim2.new(0, 75, 1, 0)
+	tabBtn.Position = UDim2.new(0, (i-1)*75, 0, 0)
+	tabBtn.BackgroundColor3 = Color3.fromRGB(40,40,40)
+	tabBtn.TextColor3 = Color3.fromRGB(180,180,180)
+	tabBtn.Font = Enum.Font.Gotham
+	tabBtn.TextSize = 18
+	tabBtn.BorderSizePixel = 0
+	tabButtons[i] = tabBtn
+	
+	-- Content frame for this tab
+	local content = Instance.new("Frame", mainFrame)
+	content.Size = UDim2.new(1, -20, 1, -90)
+	content.Position = UDim2.new(0, 10, 0, 80)
+	content.BackgroundTransparency = 1
+	content.Visible = false
+	tabContents[i] = content
+	
+	tabBtn.MouseButton1Click:Connect(function()
+		for j, btn in pairs(tabButtons) do
+			btn.BackgroundColor3 = Color3.fromRGB(40,40,40)
+			tabContents[j].Visible = false
+		end
+		tabBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+		content.Visible = true
+	end)
+end
+
+-- Open first tab by default
+tabButtons[1].BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+tabContents[1].Visible = true
+
+-- Fly tab content
+local flyLabel = Instance.new("TextLabel", tabContents[1])
+flyLabel.Text = "Enable Fly"
+flyLabel.Size = UDim2.new(0, 120, 0, 30)
+flyLabel.Position = UDim2.new(0, 0, 0, 0)
+flyLabel.BackgroundTransparency = 1
+flyLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+flyLabel.Font = Enum.Font.Gotham
+flyLabel.TextSize = 20
+
+local flySwitch = createSwitch(tabContents[1], UDim2.new(0, 130, 0, 0))
+
+-- Speed tab content
+local speedLabel = Instance.new("TextLabel", tabContents[2])
+speedLabel.Text = "Speed Boost"
+speedLabel.Size = UDim2.new(0, 120, 0, 30)
+speedLabel.Position = UDim2.new(0, 0, 0, 0)
+speedLabel.BackgroundTransparency = 1
+speedLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+speedLabel.Font = Enum.Font.Gotham
+speedLabel.TextSize = 20
+
+local speedSwitch = createSwitch(tabContents[2], UDim2.new(0, 130, 0, 0))
+
+-- Noclip tab content
+local noclipLabel = Instance.new("TextLabel", tabContents[3])
+noclipLabel.Text = "Enable Noclip"
+noclipLabel.Size = UDim2.new(0, 120, 0, 30)
+noclipLabel.Position = UDim2.new(0, 0, 0, 0)
+noclipLabel.BackgroundTransparency = 1
+noclipLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+noclipLabel.Font = Enum.Font.Gotham
+noclipLabel.TextSize = 20
+
+local noclipSwitch = createSwitch
