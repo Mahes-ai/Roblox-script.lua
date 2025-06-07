@@ -1,0 +1,38 @@
+-- Universal Roblox Script with Orion Library
+-- Adapted for mobile executor (Delta Executor) GUI compatibility
+-- Provides Fly, Speed Boost with indicator, NoClip features with Orion UI
+
+-- Load Orion Library
+local OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/shlexware/Orion/main/source')))()
+
+-- Ensure PlayerGui exists and parent the Orion GUI manually (fix for some mobile executors)
+local player = game.Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+if OrionLib and OrionLib.UI and OrionLib.UI.Parent ~= playerGui then
+    OrionLib.UI.Parent = playerGui
+end
+
+-- Create window
+local Window = OrionLib:MakeWindow({
+    Name = "UniversalScript",
+    HidePremium = true,
+    SaveConfig = true,
+    ConfigFolder = "UniversalScriptConfig"
+})
+
+-- Simple test tab to confirm UI loads
+local TestTab = Window:MakeTab({
+    Name = "Test",
+    Icon = "rbxassetid://4483345998",
+    PremiumOnly = false
+})
+
+TestTab:AddLabel("If you see this, Orion GUI loaded correctly on mobile executor!")
+
+-- Show window explicitly (some Orion versions require this)
+Window:Init()
+
+-- Print confirmation
+print("[UniversalScript] Orion GUI should now be visible on mobile executor.")
+
+-- === Below would be the functional part, to be added once confirmed ===
