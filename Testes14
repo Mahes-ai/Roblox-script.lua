@@ -1,0 +1,119 @@
+-- Mobile-Compatible Mod Menu (No Orion)
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
+local char = player.Character or player.CharacterAdded:Wait()
+local hrp = char:WaitForChild("HumanoidRootPart")
+local hum = char:WaitForChild("Humanoid")
+
+-- States
+local flying = false
+local noclip = false
+local espOn = false
+
+-- UI
+local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+ScreenGui.ResetOnSpawn = false
+
+local function makeBtn(name, pos, callback)
+	local btn = Instance.new("TextButton", ScreenGui)
+	btn.Size = UDim2.new(0, 120, 0, 35)
+	btn.Position = pos
+	btn.Text = name
+	btn.BackgroundColor3 = Color3.new(0.1,0.1,0.1)
+	btn.TextColor3 = Color3.new(1,1,1)
+	btn.BorderSizePixel = 1
+	btn.TextScaled = true
+	btn.MouseButton1Click:Connect(callback)
+	return btn
+end
+
+-- FLY
+local function startFly()
+	local bp = Instance.new("BodyPosition", hrp)
+	bp.D = 10
+	bp.MaxForce = Vector3.new(400000,400000,400000)
+	bp.Name = "FlyPos"
+	local bg = Instance.new("BodyGyro", hrp)
+	bg.MaxTorque = Vector3.new(400000,400000,400000)
+	bg.Name = "FlyGyro"
+	flying = true
+
+	RunService.RenderStepped:Connect(function()
+		if flying then
+			local cam = workspace.CurrentCamera
+			local dir = cam.CFrame.LookVector * 3
+			bp.Position = hrp.Position + dir
+			bg.CFrame = cam.CFrame
+		end
+	end)
+end
+
+local function stopFly()
+	flying = false
+	if hrp:FindFirstChild("FlyPos") then hrp.FlyPos:Destroy() end
+	if hrp:FindFirstChild("FlyGyro") then hrp.FlyGyro:Destroy() end
+end
+
+makeBtn("Fly (Toggle)", UDim2.new(0, 10, 0, 10), function()
+	flying = not flying
+	if flying then startFly() else stopFly() end
+end)
+
+-- WalkSpeed
+makeBtn("Speed x2", UDim2.new(0, 10, 0, 50), function()
+	hum.WalkSpeed = hum.WalkSpeed == 16 and 32 or 16
+end)
+
+-- Noclip
+RunService.Stepped:Connect(function()
+	if noclip then
+		for _,v in pairs(char:GetDescendants()) do
+			if v:IsA("BasePart") then
+				v.CanCollide = false
+			end
+		end
+	end
+end)
+
+makeBtn("Noclip (Toggle)", UDim2.new(0, 10, 0, 90), function()
+	noclip = not noclip
+end)
+
+-- ESP
+local function toggleESP()
+	espOn = not espOn
+	for _, p in pairs(Players:GetPlayers()) do
+		if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+			local part = p.Character.HumanoidRootPart
+			if espOn then
+				local box = Instance.new("BoxHandleAdornment")
+				box.Name = "ESPBox"
+				box.Adornee = part
+				box.Size = Vector3.new(4, 6, 1)
+				box.Transparency = 0.5
+				box.Color3 = Color3.new(1, 0, 0)
+				box.AlwaysOnTop = true
+				box.ZIndex = 5
+				box.Parent = part
+			else
+				local old = part:FindFirstChild("ESPBox")
+				if old then old:Destroy() end
+			end
+		end
+	end
+end
+
+makeBtn("ESP (Toggle)", UDim2.new(0, 10, 0, 130), function()
+	toggleESP()
+end)
+
+-- Anti-AFK
+makeBtn("Anti-AFK", UDim2.new(0, 10, 0, 170), function()
+	local vu = game:GetService("VirtualUser")
+	player.Idled:Connect(function()
+		vu:Button2Down(Vector2.new(), workspace.CurrentCamera.CFrame)
+		wait(1)
+		vu:Button2Up(Vector2.new(), workspace.CurrentCamera.CFrame)
+	end)
+end)
