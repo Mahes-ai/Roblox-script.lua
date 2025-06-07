@@ -1,0 +1,507 @@
+-- Universal Roblox Script with Elegant Modern UI and Full Features
+-- Inspired by high-end component library design standards
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+local player = Players.LocalPlayer
+
+-- Wait for character and humanoid references
+local function waitForCharacter()
+    repeat
+        player.CharacterAdded:Wait()
+        character = player.Character
+        humanoid = character:WaitForChild("Humanoid")
+        rootPart = character:WaitForChild("HumanoidRootPart")
+    until humanoid and rootPart
+    return character, humanoid, rootPart
+end
+
+local character, humanoid, rootPart = player.Character, nil, nil
+
+if not (character and character:FindFirstChild("Humanoid") and character:FindFirstChild("HumanoidRootPart")) then
+    character, humanoid, rootPart = waitForCharacter()
+else
+    humanoid = character:FindFirstChild("Humanoid")
+    rootPart = character:FindFirstChild("HumanoidRootPart")
+end
+
+-- UI Setup --
+
+local playerGui = player:WaitForChild("PlayerGui")
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "UniversalScriptGUI"
+screenGui.IgnoreGuiInset = true
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 360, 0, 460)
+mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+mainFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+mainFrame.BorderSizePixel = 0
+mainFrame.ClipsDescendants = true
+mainFrame.Parent = screenGui
+
+local uicorner = Instance.new("UICorner", mainFrame)
+uicorner.CornerRadius = UDim.new(0, 16)
+
+local uiStroke = Instance.new("UIStroke", mainFrame)
+uiStroke.Thickness = 1
+uiStroke.Color = Color3.fromRGB(220, 220, 220)
+uiStroke.Transparency = 0.7
+
+local listLayout = Instance.new("UIListLayout", mainFrame)
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+listLayout.Padding = UDim.new(0, 20)
+
+-- Drag bar
+local dragBar = Instance.new("Frame")
+dragBar.Name = "DragBar"
+dragBar.BackgroundColor3 = Color3.fromRGB(245, 245, 247)
+dragBar.BorderSizePixel = 0
+dragBar.Size = UDim2.new(1, 0, 0, 48)
+dragBar.LayoutOrder = 0
+dragBar.Parent = mainFrame
+
+local dragBarUICorner = Instance.new("UICorner", dragBar)
+dragBarUICorner.CornerRadius = UDim.new(0, 16)
+
+-- Title label on the drag bar
+local dragTitle = Instance.new("TextLabel")
+dragTitle.Name = "DragTitle"
+dragTitle.BackgroundTransparency = 1
+dragTitle.Size = UDim2.new(0.7, 0, 1, 0)
+dragTitle.Position = UDim2.new(0, 24, 0, 0)
+dragTitle.Font = Enum.Font.GothamBlack
+dragTitle.TextSize = 28
+dragTitle.TextColor3 = Color3.fromRGB(30, 30, 30)
+dragTitle.Text = "Universal Script"
+dragTitle.TextXAlignment = Enum.TextXAlignment.Left
+dragTitle.Parent = dragBar
+
+-- Minimize button (top right)
+local minimizeButton = Instance.new("TextButton")
+minimizeButton.Name = "MinimizeButton"
+minimizeButton.Text = "—"
+minimizeButton.TextColor3 = Color3.fromRGB(150, 150, 150)
+minimizeButton.TextScaled = true
+minimizeButton.Font = Enum.Font.GothamBold
+minimizeButton.BackgroundColor3 = Color3.fromRGB(245, 245, 247)
+minimizeButton.BorderSizePixel = 0
+minimizeButton.Size = UDim2.new(0, 36, 0, 36)
+minimizeButton.Position = UDim2.new(1, -44, 0, 6)
+minimizeButton.AnchorPoint = Vector2.new(1, 0)
+minimizeButton.Parent = dragBar
+
+local minimizeUICorner = Instance.new("UICorner", minimizeButton)
+minimizeUICorner.CornerRadius = UDim.new(0, 9)
+
+local minimized = false
+
+minimizeButton.MouseEnter:Connect(function()
+    minimizeButton.TextColor3 = Color3.fromRGB(80,80,80)
+end)
+minimizeButton.MouseLeave:Connect(function()
+    minimizeButton.TextColor3 = Color3.fromRGB(150,150,150)
+end)
+
+-- Content container for hiding/showing on minimize
+local contentContainer = Instance.new("Frame")
+contentContainer.BackgroundTransparency = 1
+contentContainer.Size = UDim2.new(1,0,1,-48)
+contentContainer.Position = UDim2.new(0,0,0,48)
+contentContainer.ClipsDescendants = true
+contentContainer.Parent = mainFrame
+
+local contentLayout = Instance.new("UIListLayout", contentContainer)
+contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+contentLayout.Padding = UDim.new(0, 20)
+
+-- Subtitle below title
+local subtitleLabel = Instance.new("TextLabel")
+subtitleLabel.Size = UDim2.new(1, 0, 0, 28)
+subtitleLabel.BackgroundTransparency = 1
+subtitleLabel.Font = Enum.Font.Gotham
+subtitleLabel.TextSize = 20
+subtitleLabel.TextColor3 = Color3.fromRGB(107, 114, 128)
+subtitleLabel.Text = "Fly ● Speed Boost ● NoClip"
+subtitleLabel.LayoutOrder = 1
+subtitleLabel.Parent = contentContainer
+
+-- Keep track of toggles and states
+local toggles = {}
+
+-- Utility to create a toggle with label and fancy animation
+local function createToggle(labelText, defaultState, layoutOrder, callback)
+    local frame = Instance.new("Frame")
+    frame.BackgroundTransparency = 1
+    frame.Size = UDim2.new(1, 0, 0, 50)
+    frame.LayoutOrder = layoutOrder
+    frame.Parent = contentContainer
+
+    local label = Instance.new("TextLabel")
+    label.Text = labelText
+    label.Font = Enum.Font.GothamSemibold
+    label.TextSize = 20
+    label.TextColor3 = Color3.fromRGB(30, 30, 30)
+    label.BackgroundTransparency = 1
+    label.Position = UDim2.new(0, 24, 0.5, 0)
+    label.AnchorPoint = Vector2.new(0, 0.5)
+    label.Size = UDim2.new(0.7, 0, 1, 0)
+    label.Parent = frame
+
+    local toggleBackground = Instance.new("Frame")
+    toggleBackground.Size = UDim2.new(0, 60, 0, 32)
+    toggleBackground.Position = UDim2.new(1, -72, 0.5, 0)
+    toggleBackground.AnchorPoint = Vector2.new(0, 0.5)
+    toggleBackground.BackgroundColor3 = Color3.fromRGB(229, 231, 235) -- Gray200
+    toggleBackground.BorderSizePixel = 0
+    toggleBackground.Parent = frame
+    toggleBackground.ClipsDescendants = true
+
+    local toggleCorner = Instance.new("UICorner", toggleBackground)
+    toggleCorner.CornerRadius = UDim.new(0, 16)
+
+    local toggleCircle = Instance.new("Frame")
+    toggleCircle.Size = UDim2.new(0, 28, 0, 28)
+    toggleCircle.Position = defaultState and UDim2.new(1, -28, 0, 2) or UDim2.new(0, 2, 0, 2)
+    toggleCircle.BackgroundColor3 = defaultState and Color3.fromRGB(52, 211, 153) or Color3.fromRGB(156, 163, 175) -- green or gray
+    toggleCircle.BorderSizePixel = 0
+    toggleCircle.Parent = toggleBackground
+
+    local toggleCircleCorner = Instance.new("UICorner", toggleCircle)
+    toggleCircleCorner.CornerRadius = UDim.new(0, 14)
+
+    local toggleState = defaultState
+
+    local function updateVisual(state)
+        local goalPos = state and UDim2.new(1, -28, 0, 2) or UDim2.new(0, 2, 0, 2)
+        local goalColor = state and Color3.fromRGB(52, 211, 153) or Color3.fromRGB(156, 163, 175)
+        local bgColor = state and Color3.fromRGB(209, 250, 229) or Color3.fromRGB(229, 231, 235)
+
+        TweenService:Create(toggleCircle, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = goalPos, BackgroundColor3 = goalColor}):Play()
+        TweenService:Create(toggleBackground, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = bgColor}):Play()
+    end
+
+    -- Click handler
+    toggleBackground.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            toggleState = not toggleState
+            updateVisual(toggleState)
+            if callback then
+                coroutine.wrap(function()
+                    pcall(callback, toggleState)
+                end)()
+            end
+        end
+    end)
+
+    updateVisual(toggleState)
+
+    -- Store toggle info for possible further use
+    toggles[labelText] = {
+        Frame = frame,
+        State = toggleState,
+        SetState = function(state)
+            toggleState = state
+            updateVisual(state)
+        end,
+        GetState = function() return toggleState end,
+    }
+
+    return frame
+end
+
+-- Speed Indicator Label
+local speedLabel = Instance.new("TextLabel")
+speedLabel.Size = UDim2.new(1, -48, 0, 28)
+speedLabel.BackgroundTransparency = 1
+speedLabel.Font = Enum.Font.GothamSemibold
+speedLabel.TextSize = 18
+speedLabel.TextColor3 = Color3.fromRGB(107, 114, 128)
+speedLabel.Text = "Speed: " .. tostring(math.floor(humanoid.WalkSpeed or 16))
+speedLabel.TextXAlignment = Enum.TextXAlignment.Center
+speedLabel.LayoutOrder = 4
+speedLabel.Parent = contentContainer
+
+-- Bottom padding spacer
+local bottomSpacer = Instance.new("Frame")
+bottomSpacer.Size = UDim2.new(1,0,0,20)
+bottomSpacer.BackgroundTransparency = 1
+bottomSpacer.LayoutOrder = 5
+bottomSpacer.Parent = contentContainer
+
+-- ======= Feature Logic =======
+
+local flying = false
+local flySpeed = 50
+local bodyGyro, bodyVelocity
+
+local baseWalkSpeed = humanoid.WalkSpeed or 16
+local speedBoostAmount = 30
+local speedBoostEnabled = false
+
+local noclipEnabled = false
+local noclipConnection
+
+local function startFly()
+    if flying then return end
+    flying = true
+    if not (character and rootPart) then return end
+
+    bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.P = 90000
+    bodyGyro.MaxTorque = Vector3.new(9e9,9e9,9e9)
+    bodyGyro.CFrame = rootPart.CFrame
+    bodyGyro.Parent = rootPart
+
+    bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.MaxForce = Vector3.new(9e9,9e9,9e9)
+    bodyVelocity.Velocity = Vector3.new(0,0,0)
+    bodyVelocity.Parent = rootPart
+
+    local heartbeatConn
+    heartbeatConn = RunService.Heartbeat:Connect(function()
+        if not flying then
+            if bodyGyro then bodyGyro:Destroy() bodyGyro=nil end
+            if bodyVelocity then bodyVelocity:Destroy() bodyVelocity=nil end
+            heartbeatConn:Disconnect()
+            return
+        end
+        local camCF = workspace.CurrentCamera.CFrame
+        local dir = Vector3.new()
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir += camCF.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir -= camCF.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir -= camCF.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir += camCF.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir += Vector3.new(0,1,0) end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then dir -= Vector3.new(0,1,0) end
+
+        if dir.Magnitude > 0 then
+            dir = dir.Unit * flySpeed
+        end
+
+        bodyVelocity.Velocity = dir
+        bodyGyro.CFrame = camCF
+    end)
+end
+
+local function stopFly()
+    flying = false
+    if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
+    if bodyVelocity then bodyVelocity:Destroy() bodyVelocity = nil end
+end
+
+local function updateSpeedLabel()
+    if speedLabel and humanoid then
+        speedLabel.Text = "Speed: " .. tostring(math.floor(humanoid.WalkSpeed))
+    end
+end
+
+local function startSpeedBoost()
+    if humanoid then
+        speedBoostEnabled = true
+        humanoid.WalkSpeed = baseWalkSpeed + speedBoostAmount
+        updateSpeedLabel()
+    end
+end
+
+local function stopSpeedBoost()
+    if humanoid then
+        speedBoostEnabled = false
+        humanoid.WalkSpeed = baseWalkSpeed
+        updateSpeedLabel()
+    end
+end
+
+local function enableNoClip()
+    if noclipConnection then return end
+    noclipConnection = RunService.Stepped:Connect(function()
+        if character and noclipEnabled then
+            for _, part in pairs(character:GetChildren()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end)
+end
+
+local function disableNoClip()
+    if noclipConnection then
+        noclipConnection:Disconnect()
+        noclipConnection = nil
+    end
+    if character then
+        for _, part in pairs(character:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = true
+            end
+        end
+    end
+end
+
+local function setNoClip(value)
+    noclipEnabled = value
+    if value then
+        enableNoClip()
+    else
+        disableNoClip()
+    end
+end
+
+-- ==== Bind toggles to logic ====
+
+toggles["Fly"] = toggles["Fly"] or {SetState = function() end}
+toggles["Speed Boost"] = toggles["Speed Boost"] or {SetState = function() end}
+toggles["NoClip"] = toggles["NoClip"] or {SetState = function() end}
+
+local function onToggle(label, state)
+    if label == "Fly" then
+        if state then startFly() else stopFly() end
+    elseif label == "Speed Boost" then
+        if state then startSpeedBoost() else stopSpeedBoost() end
+    elseif label == "NoClip" then
+        setNoClip(state)
+    end
+end
+
+-- Connect toggles created previously
+for _, toggle in pairs(contentContainer:GetChildren()) do
+    if toggle:IsA("Frame") and toggle.Name ~= "bottomSpacer" and toggle ~= subtitleLabel then
+        local label = toggle:FindFirstChildOfClass("TextLabel")
+        if label and toggles[label.Text] then
+            local frame = toggle
+            frame.BackgroundTransparency = 0
+            -- We'll intercept toggle input by the toggleBackground
+            local toggleBackground = frame:FindFirstChildWhichIsA("Frame")
+            if toggleBackground then
+                toggleBackground.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        -- Flip toggle state visually and call our handler
+                        -- Use stored toggles map here:
+                        local currentState = toggles[label.Text].GetState and toggles[label.Text].GetState() or false
+                        local newState = not currentState
+                        toggles[label.Text].SetState(newState)
+                        onToggle(label.Text, newState)
+                    end
+                end)
+            end
+        end
+    end
+end
+
+-- Because above toggles creation needs to be explicit to bind, recreate toggles fully here:
+
+-- Clear old toggles
+for _, child in pairs(contentContainer:GetChildren()) do
+    if child:IsA("Frame") and child.Name ~= "bottomSpacer" and child ~= subtitleLabel then
+        child:Destroy()
+    end
+end
+
+-- Create toggles fresh and bind callbacks
+local flyToggle = createToggle("Fly", false, 2, function(state) onToggle("Fly", state) end)
+local speedToggle = createToggle("Speed Boost", false, 3, function(state) onToggle("Speed Boost", state) end)
+local noclipToggle = createToggle("NoClip", false, 4, function(state) onToggle("NoClip", state) end)
+
+-- Maintain updated speed label every 0.1 seconds
+spawn(function()
+    while true do
+        if speedBoostEnabled then
+            updateSpeedLabel()
+        else
+            speedLabel.Text = "Speed: " .. tostring(math.floor(baseWalkSpeed))
+        end
+        wait(0.1)
+    end
+end)
+
+-- Minimize / Restore logic
+local contentVisible = true
+minimizeButton.MouseButton1Click:Connect(function()
+    if contentVisible then
+        -- Animate minimize
+        local tween = TweenService:Create(mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, 360, 0, 48)
+        })
+        tween:Play()
+        tween.Completed:Wait()
+        contentContainer.Visible = false
+        contentVisible = false
+    else
+        -- Animate restore
+        contentContainer.Visible = true
+        local tween = TweenService:Create(mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, 360, 0, 460)
+        })
+        tween:Play()
+        contentVisible = true
+    end
+end)
+
+-- Dragging logic (xy constrained to viewport)
+
+local dragging = false
+local dragInput
+local dragStart
+local startPos
+
+local function updateDrag(input)
+    local delta = input.Position - dragStart
+    local newPos = UDim2.new(
+        math.clamp(startPos.X.Scale, 0, 1),
+        math.clamp(startPos.X.Offset + delta.X, 0, workspace.CurrentCamera.ViewportSize.X - mainFrame.AbsoluteSize.X),
+        math.clamp(startPos.Y.Scale, 0, 1),
+        math.clamp(startPos.Y.Offset + delta.Y, 0, workspace.CurrentCamera.ViewportSize.Y - mainFrame.AbsoluteSize.Y)
+    )
+    mainFrame.Position = newPos
+end
+
+dragBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = mainFrame.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+dragBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        updateDrag(input)
+    end
+end)
+
+-- Reconnect character references on respawn
+player.CharacterAdded:Connect(function()
+    character, humanoid, rootPart = waitForCharacter()
+    baseWalkSpeed = humanoid.WalkSpeed or 16
+    -- Reset features and UI states
+    stopFly()
+    stopSpeedBoost()
+    setNoClip(false)
+    flyToggle:SetState(false)
+    speedToggle:SetState(false)
+    noclipToggle:SetState(false)
+    updateSpeedLabel()
+end)
+
+updateSpeedLabel()
+
+print("✅ Universal Script loaded! UI ready with draggable, minimizable window and fully functional toggles.")
