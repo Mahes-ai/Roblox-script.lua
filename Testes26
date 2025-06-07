@@ -1,0 +1,154 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local player = Players.LocalPlayer
+local char = player.Character or player.CharacterAdded:Wait()
+local hrp = char:WaitForChild("HumanoidRootPart")
+local hum = char:WaitForChild("Humanoid")
+
+-- GUI ke PlayerGui
+local gui = Instance.new("ScreenGui")
+gui.Parent = player:WaitForChild("PlayerGui")
+gui.ResetOnSpawn = false
+
+local function makeBtn(name, pos, callback)
+	local b = Instance.new("TextButton", gui)
+	b.Size = UDim2.new(0, 140, 0, 40)
+	b.Position = pos
+	b.Text = name
+	b.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+	b.TextColor3 = Color3.new(1, 1, 1)
+	b.TextScaled = true
+	b.MouseButton1Click:Connect(callback)
+	return b
+end
+
+-- Fly variables
+local flying = false
+local bodyVel, bodyGyro
+local flySpeed = 50
+
+makeBtn("Fly", UDim2.new(0, 10, 0, 10), function()
+	flying = not flying
+	if flying then
+		bodyVel = Instance.new("BodyVelocity", hrp)
+		bodyVel.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+		bodyVel.Velocity = Vector3.new(0, 0, 0)
+
+		bodyGyro = Instance.new("BodyGyro", hrp)
+		bodyGyro.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
+		bodyGyro.CFrame = hrp.CFrame
+
+		hum.PlatformStand = true
+
+		RunService:BindToRenderStep("FlyControl", Enum.RenderPriority.Character.Value, function()
+			local camCFrame = workspace.CurrentCamera.CFrame
+			local moveDir = Vector3.new(0, 0, 0)
+			if UIS:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + camCFrame.LookVector end
+			if UIS:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - camCFrame.LookVector end
+			if UIS:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - camCFrame.RightVector end
+			if UIS:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + camCFrame.RightVector end
+			if UIS:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
+			if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then moveDir = moveDir - Vector3.new(0, 1, 0) end
+
+			if moveDir.Magnitude > 0 then
+				moveDir = moveDir.Unit * flySpeed
+			end
+
+			bodyVel.Velocity = moveDir
+			bodyGyro.CFrame = camCFrame
+		end)
+	else
+		RunService:UnbindFromRenderStep("FlyControl")
+		if bodyVel then bodyVel:Destroy() end
+		if bodyGyro then bodyGyro:Destroy() end
+		hum.PlatformStand = false
+	end
+end)
+
+-- Speed toggle
+makeBtn("Speed", UDim2.new(0, 10, 0, 60), function()
+	if hum.WalkSpeed == 16 then
+		hum.WalkSpeed = 32
+	else
+		hum.WalkSpeed = 16
+	end
+end)
+
+-- ESP toggle
+local espEnabled = false
+local function toggleESP()
+	espEnabled = not espEnabled
+	for _, p in pairs(Players:GetPlayers()) do
+		if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+			local part = p.Character.HumanoidRootPart
+			if espEnabled then
+				local box = Instance.new("BoxHandleAdornment")
+				box.Name = "ESPBox"
+				box.Adornee = part
+				box.Size = Vector3.new(4, 6, 1)
+				box.Transparency = 0.5
+				box.Color3 = Color3.new(1, 0, 0)
+				box.AlwaysOnTop = true
+				box.ZIndex = 5
+				box.Parent = part
+			else
+				local old = part:FindFirstChild("ESPBox")
+				if old then old:Destroy() end
+			end
+		end
+	end
+end
+makeBtn("ESP", UDim2.new(0, 10, 0, 110), toggleESP)
+
+-- Noclip biasa toggle (ganti Ghost Noclip)
+local noclipEnabled = false
+local function setNoclip(state)
+	for _, part in pairs(char:GetDescendants()) do
+		if part:IsA("BasePart") then
+			part.CanCollide = not state
+		end
+	end
+end
+
+makeBtn("Noclip", UDim2.new(0, 10, 0, 160), function()
+	noclipEnabled = not noclipEnabled
+	setNoclip(noclipEnabled)
+end)
+
+-- Anti-Hit (kebal efek knockback, stun, dll)
+makeBtn("Anti-Hit", UDim2.new(0, 10, 0, 210), function()
+	local blockedStates = {
+		["GettingUp"] = true,
+		["Ragdoll"] = true,
+		["Climbing"] = true,
+		["FallingDown"] = true,
+		["PlatformStanding"] = true,
+		["Swimming"] = true,
+		["Physics"] = true,
+	}
+	hum.StateChanged:Connect(function(_, newState)
+		if blockedStates[tostring(newState)] then
+			hum:ChangeState(Enum.HumanoidStateType.Running)
+		end
+	end)
+	hum:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+		if hum.WalkSpeed < 16 then hum.WalkSpeed = 16 end
+	end)
+	hum:GetPropertyChangedSignal("JumpPower"):Connect(function()
+		if hum.JumpPower < 50 then hum.JumpPower = 50 end
+	end)
+	hum:GetPropertyChangedSignal("PlatformStand"):Connect(function()
+		if hum.PlatformStand then hum.PlatformStand = false end
+	end)
+end)
+
+-- Anti-AFK
+makeBtn("Anti-AFK", UDim2.new(0, 10, 0, 260), function()
+	local vu = game:GetService("VirtualUser")
+	player.Idled:Connect(function()
+		vu:Button2Down(Vector2.new(), workspace.CurrentCamera.CFrame)
+		wait(1)
+		vu:Button2Up(Vector2.new(), workspace.CurrentCamera.CFrame)
+	end)
+end)
