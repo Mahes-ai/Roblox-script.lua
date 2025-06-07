@@ -1,0 +1,364 @@
+-- Universal Roblox Script
+-- Features: Fly, Speed Boost, NoClip with custom clean UI (mobile executor compatible)
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local rootPart = character:WaitForChild("HumanoidRootPart")
+
+-- --- Utility Functions ---
+
+local function waitForCharacter()
+    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") then
+        character = player.Character
+        humanoid = character:FindFirstChild("Humanoid")
+        rootPart = character:FindFirstChild("HumanoidRootPart")
+        return
+    end
+    repeat
+        player.CharacterAdded:Wait()
+        character = player.Character
+        humanoid = character:WaitForChild("Humanoid")
+        rootPart = character:WaitForChild("HumanoidRootPart")
+    until humanoid and rootPart
+end
+
+-- --- UI Creation ---
+
+local function createRoundFrame(parent, size, position)
+    local frame = Instance.new("Frame")
+    frame.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- white
+    frame.BackgroundTransparency = 0
+    frame.Size = size
+    frame.Position = position
+    frame.AnchorPoint = Vector2.new(0.5,0.5)
+    frame.Parent = parent
+    frame.ClipsDescendants = true
+
+    local uicorner = Instance.new("UICorner")
+    uicorner.CornerRadius = UDim.new(0, 12)
+    uicorner.Parent = frame
+
+    local uishadow = Instance.new("UIShadow")
+    uishadow.Parent = frame
+
+    return frame
+end
+
+local function createTextLabel(parent, text, fontSize, posY, bold)
+    local label = Instance.new("TextLabel")
+    label.BackgroundTransparency = 1
+    label.Position = UDim2.new(0.5, 0, 0, posY)
+    label.Size = UDim2.new(1, -40, 0, fontSize + 10)
+    label.AnchorPoint = Vector2.new(0.5, 0)
+    label.Font = Enum.Font.GothamSemibold
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(107, 114, 128) -- neutral gray #6b7280
+    label.TextWrapped = true
+    label.TextYAlignment = Enum.TextYAlignment.Top
+    label.TextSize = fontSize
+    label.Parent = parent
+    label.RichText = true
+    if bold then
+        label.Font = Enum.Font.GothamExtraBold
+        label.TextColor3 = Color3.fromRGB(30, 30, 30)
+    end
+    return label
+end
+
+local function createToggle(parent, labelText, togglePosY, default, callback)
+    local frame = Instance.new("Frame")
+    frame.Parent = parent
+    frame.BackgroundTransparency = 1
+    frame.Size = UDim2.new(1, -40, 0, 36)
+    frame.Position = UDim2.new(0, 20, 0, togglePosY)
+
+    local label = Instance.new("TextLabel")
+    label.Parent = frame
+    label.Size = UDim2.new(0.7, 0, 1, 0)
+    label.Position = UDim2.new(0, 0, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = labelText
+    label.TextColor3 = Color3.fromRGB(30, 30, 30)
+    label.Font = Enum.Font.GothamSemibold
+    label.TextSize = 16
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.TextYAlignment = Enum.TextYAlignment.Center
+
+    local toggleButton = Instance.new("ImageButton")
+    toggleButton.Parent = frame
+    toggleButton.AnchorPoint = Vector2.new(1, 0.5)
+    toggleButton.Position = UDim2.new(1, 0, 0.5, 0)
+    toggleButton.Size = UDim2.new(0, 48, 0, 28)
+    toggleButton.BackgroundColor3 = Color3.fromRGB(229, 231, 235) -- gray-200
+    toggleButton.AutoButtonColor = false
+    toggleButton.Image = ""
+    toggleButton.ClipsDescendants = true
+
+    local uicorner = Instance.new("UICorner")
+    uicorner.CornerRadius = UDim.new(0, 14)
+    uicorner.Parent = toggleButton
+
+    local circle = Instance.new("Frame")
+    circle.Parent = toggleButton
+    circle.Size = UDim2.new(0, 24, 0, 24)
+    circle.Position = UDim2.new(default and 1 or 0, -24, 0.5, -12)
+    circle.BackgroundColor3 = default and Color3.fromRGB(52, 211, 153) or Color3.fromRGB(156, 163, 175) -- green or gray
+    circle.BorderSizePixel = 0
+    circle.AutomaticSize = Enum.AutomaticSize.None
+
+    local circleUICorner = Instance.new("UICorner")
+    circleUICorner.CornerRadius = UDim.new(0, 12)
+    circleUICorner.Parent = circle
+
+    local function setToggle(state)
+        if state then
+            TweenService:Create(circle, TweenInfo.new(0.3), {Position = UDim2.new(1, -24, 0.5, -12), BackgroundColor3 = Color3.fromRGB(52, 211, 153)}):Play()
+            TweenService:Create(toggleButton, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(209, 250, 229)}):Play() -- green-100 tint
+        else
+            TweenService:Create(circle, TweenInfo.new(0.3), {Position = UDim2.new(0, 0, 0.5, -12), BackgroundColor3 = Color3.fromRGB(156, 163, 175)}):Play()
+            TweenService:Create(toggleButton, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(229, 231, 235)}):Play() -- gray-200
+        end
+    end
+
+    local toggleState = default
+    setToggle(toggleState)
+
+    toggleButton.MouseButton1Click:Connect(function()
+        toggleState = not toggleState
+        setToggle(toggleState)
+        if callback then
+            coroutine.wrap(function()
+                pcall(callback, toggleState)
+            end)()
+        end
+    end)
+
+    return frame
+end
+
+-- Main UI Setup
+
+local playerGui = player:WaitForChild("PlayerGui")
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "UniversalScriptGUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+local mainFrame = createRoundFrame(screenGui, UDim2.new(0, 320, 0, 400), UDim2.new(0.5, 0, 0.5, 0))
+mainFrame.BackgroundColor3 = Color3.fromRGB(255,255,255)
+mainFrame.ClipsDescendants = true
+mainFrame.AnchorPoint = Vector2.new(0.5,0.5)
+
+-- Shadow effect with ImageLabel (blurred) or UIShadow on Roblox may be limited on mobile, so simplified
+
+local headerLabel = createTextLabel(mainFrame, "Universal Script", 32, 20, true)
+headerLabel.TextColor3 = Color3.fromRGB(20, 20, 20) -- strong dark color
+
+local subtitleLabel = createTextLabel(mainFrame, "Fly, Speed Boost, NoClip", 18, 70, false)
+
+-- Speed indicator label (will update text dynamically)
+local speedLabel = createTextLabel(mainFrame, "Speed: " .. tostring(math.floor(humanoid.WalkSpeed or 16)), 18, 360, false)
+speedLabel.Position = UDim2.new(0.5, 0, 0, 360)
+speedLabel.TextColor3 = Color3.fromRGB(80, 80, 80)
+
+-- --- Global Script Variables ---
+local flying = false
+local flySpeed = 50
+local bodyGyro = nil
+local bodyVelocity = nil
+
+local speedBoostEnabled = false
+local baseWalkSpeed = humanoid.WalkSpeed or 16
+local speedBoostAmount = 30
+
+local noclipEnabled = false
+
+-- --- Fly Functions ---
+
+local function startFly()
+    if flying then return end
+    flying = true
+
+    if not character or not rootPart then return end
+
+    bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.P = 9e4
+    bodyGyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+    bodyGyro.CFrame = rootPart.CFrame
+    bodyGyro.Parent = rootPart
+
+    bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+    bodyVelocity.Velocity = Vector3.new(0,0,0)
+    bodyVelocity.Parent = rootPart
+
+    local RunConnection
+    RunConnection = RunService.Heartbeat:Connect(function()
+        if not flying then
+            if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
+            if bodyVelocity then bodyVelocity:Destroy() bodyVelocity = nil end
+            RunConnection:Disconnect()
+            return
+        end
+
+        local camCF = workspace.CurrentCamera.CFrame
+        local direction = Vector3.new()
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+            direction = direction + camCF.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+            direction = direction - camCF.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+            direction = direction - camCF.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+            direction = direction + camCF.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            direction = direction + Vector3.new(0,1,0)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+            direction = direction - Vector3.new(0,1,0)
+        end
+
+        if direction.Magnitude > 0 then
+            direction = direction.Unit * flySpeed
+        end
+
+        bodyVelocity.Velocity = direction
+        bodyGyro.CFrame = camCF
+    end)
+end
+
+local function stopFly()
+    flying = false
+    if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
+    if bodyVelocity then bodyVelocity:Destroy() bodyVelocity = nil end
+end
+
+-- --- Speed Boost Functions ---
+
+local function updateSpeedLabel()
+    if speedLabel and humanoid then
+        speedLabel.Text = "Speed: " .. tostring(math.floor(humanoid.WalkSpeed))
+    end
+end
+
+local function startSpeedBoost()
+    if humanoid then
+        speedBoostEnabled = true
+        humanoid.WalkSpeed = baseWalkSpeed + speedBoostAmount
+        updateSpeedLabel()
+    end
+end
+
+local function stopSpeedBoost()
+    if humanoid then
+        speedBoostEnabled = false
+        humanoid.WalkSpeed = baseWalkSpeed
+        updateSpeedLabel()
+    end
+end
+
+-- --- NoClip Functions ---
+
+local noclipConnection
+
+local function enableNoClip()
+    noclipConnection = RunService.Stepped:Connect(function()
+        if character and noclipEnabled then
+            for _, part in pairs(character:GetChildren()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end)
+end
+
+local function disableNoClip()
+    if noclipConnection then
+        noclipConnection:Disconnect()
+        noclipConnection = nil
+    end
+    if character then
+        for _, part in pairs(character:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = true
+            end
+        end
+    end
+end
+
+local function setNoClip(value)
+    noclipEnabled = value
+    if noclipEnabled then
+        enableNoClip()
+    else
+        disableNoClip()
+    end
+end
+
+-- --- Connection to toggles ---
+
+-- Create toggles, keep track for connections if needed
+
+createToggle(mainFrame, "Fly", 120, false, function(value)
+    if value then
+        startFly()
+    else
+        stopFly()
+    end
+end)
+
+createToggle(mainFrame, "Speed Boost", 180, false, function(value)
+    if value then
+        startSpeedBoost()
+    else
+        stopSpeedBoost()
+    end
+end)
+
+createToggle(mainFrame, "NoClip", 240, false, function(value)
+    setNoClip(value)
+end)
+
+-- Update speed label every 0.1 seconds for responsiveness
+spawn(function()
+    while true do
+        if speedBoostEnabled then
+            updateSpeedLabel()
+        else
+            -- Just keep base speed display
+            speedLabel.Text = "Speed: " .. tostring(math.floor(baseWalkSpeed))
+        end
+        wait(0.1)
+    end
+end)
+
+-- Handle character respawn to reset references and states
+player.CharacterAdded:Connect(function()
+    waitForCharacter()
+    -- reset variables and UI states
+    stopFly()
+    stopSpeedBoost()
+    setNoClip(false)
+    baseWalkSpeed = humanoid.WalkSpeed or 16
+    updateSpeedLabel()
+end)
+
+-- Initial setup wait
+waitForCharacter()
+updateSpeedLabel()
+
+print("Universal Script loaded! Use the UI toggles to enable Fly, Speed Boost, and NoClip.")
+
