@@ -1,0 +1,108 @@
+-- MOD MENU UNIVERSAL DELTA MOBILE (Fly, Speed, Noclip)
+local player = game.Players.LocalPlayer
+local char = player.Character or player.CharacterAdded:Wait()
+
+-- ScreenGui & Open Button
+local screenGui = Instance.new("ScreenGui", game.CoreGui)
+screenGui.Name = "UniversalModMenu"
+
+local openBtn = Instance.new("TextButton", screenGui)
+openBtn.Size = UDim2.new(0, 40, 0, 40)
+openBtn.Position = UDim2.new(0, 10, 0.4, 0)
+openBtn.Text = "⚙️"
+openBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+openBtn.TextColor3 = Color3.new(1,1,1)
+openBtn.TextSize = 24
+
+-- Main Menu
+local menuFrame = Instance.new("Frame", screenGui)
+menuFrame.Size = UDim2.new(0, 180, 0, 220)
+menuFrame.Position = UDim2.new(0, 60, 0.3, 0)
+menuFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+menuFrame.Visible = false
+
+local uicorner = Instance.new("UICorner", menuFrame)
+uicorner.CornerRadius = UDim.new(0, 10)
+
+-- Tabs
+local flyBtn = Instance.new("TextButton", menuFrame)
+local speedBtn = Instance.new("TextButton", menuFrame)
+local noclipBtn = Instance.new("TextButton", menuFrame)
+
+local function setupButton(btn, text, posY)
+	btn.Size = UDim2.new(0, 160, 0, 50)
+	btn.Position = UDim2.new(0, 10, 0, posY)
+	btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+	btn.TextColor3 = Color3.new(1,1,1)
+	btn.Font = Enum.Font.Gotham
+	btn.TextSize = 14
+	btn.Text = text
+end
+
+setupButton(flyBtn, "Toggle Fly", 10)
+setupButton(speedBtn, "Toggle Speed", 70)
+setupButton(noclipBtn, "Toggle Noclip", 130)
+
+flyBtn.Parent = menuFrame
+speedBtn.Parent = menuFrame
+noclipBtn.Parent = menuFrame
+
+-- Toggle Menu
+openBtn.MouseButton1Click:Connect(function()
+	menuFrame.Visible = not menuFrame.Visible
+end)
+
+-- FLY
+local flying = false
+flyBtn.MouseButton1Click:Connect(function()
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
+	flying = not flying
+	if flying then
+		local bv = Instance.new("BodyVelocity", hrp)
+		bv.Name = "FlyForce"
+		bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+		bv.Velocity = Vector3.new(0, 50, 0)
+	else
+		local force = hrp:FindFirstChild("FlyForce")
+		if force then force:Destroy() end
+	end
+end)
+
+-- SPEED
+local speeding = false
+speedBtn.MouseButton1Click:Connect(function()
+	local human = char:FindFirstChildOfClass("Humanoid")
+	if human then
+		speeding = not speeding
+		human.WalkSpeed = speeding and 100 or 16
+	end
+end)
+
+-- NOCLIP
+local noclip = false
+noclipBtn.MouseButton1Click:Connect(function()
+	noclip = not noclip
+	noclipBtn.Text = noclip and "Noclip: ON" or "Noclip: OFF"
+end)
+
+game:GetService("RunService").Stepped:Connect(function()
+	if noclip and char then
+		for _, part in pairs(char:GetDescendants()) do
+			if part:IsA("BasePart") then
+				part.CanCollide = false
+			end
+		end
+	end
+end)
+
+-- Fix Animasi dan Lompatan saat Noclip Aktif
+game:GetService("RunService").Heartbeat:Connect(function()
+	if noclip and char then
+		local hrp = char:FindFirstChild("HumanoidRootPart")
+		if hrp then
+			-- cegah terlempar balik (reset velocity)
+			hrp.Velocity = Vector3.new(0, hrp.Velocity.Y, 0)
+		end
+	end
+end)
