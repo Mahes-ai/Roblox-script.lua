@@ -1,0 +1,120 @@
+-- Muat Orion Library
+local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Orion/main/source"))()
+
+-- Buat jendela utama
+local Window = OrionLib:MakeWindow({
+    Name = "Universal Mod Menu",
+    HidePremium = false,
+    SaveConfig = false,
+    ConfigFolder = "UniversalModMenu"
+})
+
+-- Buat tab untuk fitur
+local MainTab = Window:MakeTab({
+    Name = "Main",
+    Icon = "rbxassetid://4483345998",
+    PremiumOnly = false
+})
+
+-- Variabel untuk status fitur
+local flying = false
+local speedEnabled = false
+local espEnabled = false
+
+-- Fungsi untuk Fly
+local function toggleFly()
+    local player = game.Players.LocalPlayer
+    local character = player.Character or player.CharacterAdded:Wait()
+    local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+    if flying then
+        flying = false
+        if character:FindFirstChild("BodyGyro") then
+            character.BodyGyro:Destroy()
+        end
+        if character:FindFirstChild("BodyVelocity") then
+            character.BodyVelocity:Destroy()
+        end
+    else
+        flying = true
+        local bodyGyro = Instance.new("BodyGyro")
+        bodyGyro.P = 9e4
+        bodyGyro.maxTorque = Vector3.new(9e9, 9e9, 9e9)
+        bodyGyro.cframe = humanoidRootPart.CFrame
+        bodyGyro.Parent = humanoidRootPart
+
+        local bodyVelocity = Instance.new("BodyVelocity")
+        bodyVelocity.velocity = Vector3.new(0, 0, 0)
+        bodyVelocity.maxForce = Vector3.new(9e9, 9e9, 9e9)
+        bodyVelocity.Parent = humanoidRootPart
+
+        game:GetService("RunService").Heartbeat:Connect(function()
+            if flying then
+                bodyGyro.cframe = workspace.CurrentCamera.CFrame
+                bodyVelocity.velocity = workspace.CurrentCamera.CFrame.LookVector * 50
+            end
+        end)
+    end
+end
+
+-- Fungsi untuk Speed Boost
+local function toggleSpeed()
+    local player = game.Players.LocalPlayer
+    local character = player.Character or player.CharacterAdded:Wait()
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+
+    if humanoid then
+        if speedEnabled then
+            humanoid.WalkSpeed = 16
+            speedEnabled = false
+        else
+            humanoid.WalkSpeed = 100
+            speedEnabled = true
+        end
+    end
+end
+
+-- Fungsi untuk ESP
+local function toggleESP()
+    local players = game:GetService("Players")
+    espEnabled = not espEnabled
+
+    for _, player in pairs(players:GetPlayers()) do
+        if player ~= players.LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+            if espEnabled then
+                local billboard = Instance.new("BillboardGui", player.Character.Head)
+                billboard.Name = "ESP"
+                billboard.Size = UDim2.new(0, 100, 0, 40)
+                billboard.StudsOffset = Vector3.new(0, 3, 0)
+                billboard.AlwaysOnTop = true
+
+                local label = Instance.new("TextLabel", billboard)
+                label.Size = UDim2.new(1, 0, 1, 0)
+                label.BackgroundTransparency = 1
+                label.Text = player.Name
+                label.TextColor3 = Color3.new(1, 0, 0)
+                label.TextStrokeTransparency = 0.5
+            else
+                if player.Character.Head:FindFirstChild("ESP") then
+                    player.Character.Head.ESP:Destroy()
+                end
+            end
+        end
+    end
+end
+
+-- Tambahkan tombol ke tab
+MainTab:AddButton({
+    Name = "Toggle Fly",
+    Callback = toggleFly
+})
+
+MainTab:AddButton({
+    Name = "Toggle Speed Boost",
+    Callback = toggleSpeed
+})
+
+MainTab:AddButton({
+    Name = "Toggle ESP",
+    Callback = toggleESP
+})
