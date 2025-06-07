@@ -1,0 +1,44 @@
+-- Noclip Script Mobile Friendly (Delta Executor)
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
+local char = player.Character or player.CharacterAdded:Wait()
+
+local noclip = false
+
+-- Tombol UI sederhana
+local gui = Instance.new("ScreenGui", game.CoreGui)
+local btn = Instance.new("TextButton", gui)
+btn.Size = UDim2.new(0, 120, 0, 40)
+btn.Position = UDim2.new(0, 10, 0.7, 0)
+btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+btn.Text = "Toggle Noclip"
+btn.TextColor3 = Color3.new(1, 1, 1)
+btn.TextSize = 14
+
+-- Fungsi toggle noclip
+btn.MouseButton1Click:Connect(function()
+	noclip = not noclip
+	btn.Text = noclip and "Noclip: ON" or "Noclip: OFF"
+end)
+
+-- Loop untuk disable Collision
+RunService.Stepped:Connect(function()
+	if noclip and char then
+		for _, part in pairs(char:GetDescendants()) do
+			if part:IsA("BasePart") and part.CanCollide then
+				part.CanCollide = false
+			end
+		end
+	end
+end)
+
+-- Anti mental saat tembus objek
+RunService.Heartbeat:Connect(function()
+	if noclip and char then
+		local hrp = char:FindFirstChild("HumanoidRootPart")
+		if hrp then
+			hrp.Velocity = Vector3.new(0, 0, 0)
+		end
+	end
+end)
