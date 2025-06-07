@@ -1,0 +1,157 @@
+-- ✅ Roblox Mod Menu (Delta Executor Friendly)
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local char = player.Character or player.CharacterAdded:Wait()
+local hrp = char:WaitForChild("HumanoidRootPart")
+local hum = char:WaitForChild("Humanoid")
+
+-- UI Setup
+local gui = Instance.new("ScreenGui", game.CoreGui)
+gui.ResetOnSpawn = false
+
+local function makeBtn(name, pos, callback)
+	local btn = Instance.new("TextButton", gui)
+	btn.Size = UDim2.new(0, 140, 0, 40)
+	btn.Position = pos
+	btn.Text = name
+	btn.BackgroundColor3 = Color3.fromRGB(30,30,30)
+	btn.TextColor3 = Color3.fromRGB(255,255,255)
+	btn.TextScaled = true
+	btn.BorderSizePixel = 1
+	btn.MouseButton1Click:Connect(callback)
+	return btn
+end
+
+-- ✅ FLY FINAL FIX (3D Bebas Arah)
+local flying = false
+local flyConn, att0, att1, alignPos, alignOri
+
+makeBtn("Fly (Toggle)", UDim2.new(0, 10, 0, 10), function()
+	flying = not flying
+
+	if flying then
+		local cam = workspace.CurrentCamera
+
+		att0 = Instance.new("Attachment", hrp)
+		att1 = Instance.new("Attachment", workspace.Terrain)
+
+		alignPos = Instance.new("AlignPosition")
+		alignPos.Attachment0 = att0
+		alignPos.Attachment1 = att1
+		alignPos.RigidityEnabled = false
+		alignPos.MaxForce = math.huge
+		alignPos.Responsiveness = 200
+		alignPos.Parent = hrp
+
+		alignOri = Instance.new("AlignOrientation")
+		alignOri.Attachment0 = att0
+		alignOri.Attachment1 = att1
+		alignOri.RigidityEnabled = false
+		alignOri.MaxTorque = math.huge
+		alignOri.Responsiveness = 200
+		alignOri.Parent = hrp
+
+		hum.PlatformStand = true
+
+		flyConn = RunService.RenderStepped:Connect(function()
+			local dir = Vector3.zero
+			local cf = cam.CFrame
+
+			if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir += cf.LookVector end
+			if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir -= cf.LookVector end
+			if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir += cf.RightVector end
+			if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir -= cf.RightVector end
+			if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir += cf.UpVector end
+			if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir -= cf.UpVector end
+
+			local speed = 50
+			att1.Position = hrp.Position + (dir.Magnitude > 0 and dir.Unit * speed or Vector3.zero)
+			att1.CFrame = cf
+		end)
+	else
+		if flyConn then flyConn:Disconnect() end
+		if att0 then att0:Destroy() end
+		if att1 then att1:Destroy() end
+		if alignPos then alignPos:Destroy() end
+		if alignOri then alignOri:Destroy() end
+		hum.PlatformStand = false
+	end
+end)
+
+-- ✅ SPEED TOGGLE
+makeBtn("Speed x2", UDim2.new(0, 10, 0, 60), function()
+	hum.WalkSpeed = hum.WalkSpeed == 16 and 32 or 16
+end)
+
+-- ✅ NOCLIP UNCOUNTERABLE VERSION
+local noclip = false
+local noclipConn
+
+makeBtn("Noclip (Safe)", UDim2.new(0, 10, 0, 110), function()
+	noclip = not noclip
+
+	if noclip then
+		hum.PlatformStand = true
+		noclipConn = RunService.Stepped:Connect(function()
+			for _, part in ipairs(char:GetDescendants()) do
+				if part:IsA("BasePart") then
+					part.CanCollide = false
+				end
+			end
+			hum:ChangeState(Enum.HumanoidStateType.Physics)
+			local cf = hrp.CFrame
+			hrp.CFrame = CFrame.new(cf.Position) -- keep position strictly
+		end)
+	else
+		hum.PlatformStand = false
+		if noclipConn then noclipConn:Disconnect() end
+		for _, part in ipairs(char:GetDescendants()) do
+			if part:IsA("BasePart") then
+				part.CanCollide = true
+			end
+		end
+	end
+end)
+
+-- ✅ ESP TOGGLE
+local espEnabled = false
+
+local function toggleESP()
+	espEnabled = not espEnabled
+	for _, p in pairs(Players:GetPlayers()) do
+		if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+			local part = p.Character.HumanoidRootPart
+			if espEnabled then
+				local box = Instance.new("BoxHandleAdornment")
+				box.Name = "ESPBox"
+				box.Adornee = part
+				box.Size = Vector3.new(4, 6, 1)
+				box.Transparency = 0.5
+				box.Color3 = Color3.new(1, 0, 0)
+				box.AlwaysOnTop = true
+				box.ZIndex = 5
+				box.Parent = part
+			else
+				local old = part:FindFirstChild("ESPBox")
+				if old then old:Destroy() end
+			end
+		end
+	end
+end
+
+makeBtn("ESP (Toggle)", UDim2.new(0, 10, 0, 160), function()
+	toggleESP()
+end)
+
+-- ✅ ANTI-AFK
+makeBtn("Anti-AFK", UDim2.new(0, 10, 0, 210), function()
+	local vu = game:GetService("VirtualUser")
+	player.Idled:Connect(function()
+		vu:Button2Down(Vector2.new(), workspace.CurrentCamera.CFrame)
+		wait(1)
+		vu:Button2Up(Vector2.new(), workspace.CurrentCamera.CFrame)
+	end)
+end)
