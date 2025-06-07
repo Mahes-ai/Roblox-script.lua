@@ -1,0 +1,114 @@
+-- ✅ Universal Mobile Mod Menu for Roblox (Client-Side Only)
+-- ✅ Works on Delta Executor (Mobile)
+-- ✅ Features: Fly, Speed Boost, ESP
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+
+repeat wait() until LocalPlayer:FindFirstChild("PlayerGui")
+
+local ScreenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
+ScreenGui.Name = "MobileModMenu"
+ScreenGui.ResetOnSpawn = false
+
+function CreateButton(name, pos, func)
+	local b = Instance.new("TextButton")
+	b.Size = UDim2.new(0, 120, 0, 40)
+	b.Position = pos
+	b.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+	b.TextColor3 = Color3.new(1,1,1)
+	b.Font = Enum.Font.SourceSansBold
+	b.TextSize = 18
+	b.Text = name
+	b.Parent = ScreenGui
+	b.MouseButton1Click:Connect(func)
+end
+
+-- 🛩 Fly Function
+local flying = false
+local flyspeed = 50
+local bodyGyro, bodyVel
+
+function toggleFly()
+	local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+	local root = char:WaitForChild("HumanoidRootPart")
+	if flying then
+		flying = false
+		if bodyGyro then bodyGyro:Destroy() end
+		if bodyVel then bodyVel:Destroy() end
+		game:GetService("RunService"):UnbindFromRenderStep("FlyLoop")
+	else
+		flying = true
+		bodyGyro = Instance.new("BodyGyro", root)
+		bodyGyro.P = 9e4
+		bodyGyro.maxTorque = Vector3.new(9e9, 9e9, 9e9)
+		bodyGyro.cframe = root.CFrame
+
+		bodyVel = Instance.new("BodyVelocity", root)
+		bodyVel.velocity = Vector3.new(0, 0, 0)
+		bodyVel.maxForce = Vector3.new(9e9, 9e9, 9e9)
+
+		game:GetService("RunService"):BindToRenderStep("FlyLoop", Enum.RenderPriority.Input.Value, function()
+			local cam = workspace.CurrentCamera
+			local dir = Vector3.new()
+			if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir += cam.CFrame.LookVector end
+			if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir -= cam.CFrame.LookVector end
+			if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir -= cam.CFrame.RightVector end
+			if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir += cam.CFrame.RightVector end
+			if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir += Vector3.new(0,1,0) end
+			if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then dir -= Vector3.new(0,1,0) end
+			bodyVel.velocity = dir.Unit * flyspeed
+			bodyGyro.CFrame = cam.CFrame
+		end)
+	end
+end
+
+-- ⚡ Speed Hack
+local speedEnabled = false
+local function toggleSpeed()
+	local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+	if hum then
+		if speedEnabled then
+			hum.WalkSpeed = 16
+		else
+			hum.WalkSpeed = 100
+		end
+		speedEnabled = not speedEnabled
+	end
+end
+
+-- 🧠 ESP
+local espEnabled = false
+function toggleESP()
+	espEnabled = not espEnabled
+	for _, p in pairs(Players:GetPlayers()) do
+		if p ~= LocalPlayer then
+			local head = p.Character and p.Character:FindFirstChild("Head")
+			if head then
+				if espEnabled then
+					local tag = Instance.new("BillboardGui", head)
+					tag.Name = "ESP"
+					tag.Size = UDim2.new(0,200,0,50)
+					tag.StudsOffset = Vector3.new(0,3,0)
+					tag.AlwaysOnTop = true
+
+					local txt = Instance.new("TextLabel", tag)
+					txt.Size = UDim2.new(1,0,1,0)
+					txt.Text = p.Name
+					txt.BackgroundTransparency = 1
+					txt.TextColor3 = Color3.new(1,0,0)
+					txt.TextStrokeTransparency = 0.5
+				else
+					local esp = head:FindFirstChild("ESP")
+					if esp then esp:Destroy() end
+				end
+			end
+		end
+	end
+end
+
+-- Buttons
+CreateButton("🚀 Fly", UDim2.new(0,10,0,10), toggleFly)
+CreateButton("⚡ Speed", UDim2.new(0,10,0,60), toggleSpeed)
+CreateButton("🔍 ESP", UDim2.new(0,10,0,110), toggleESP)
