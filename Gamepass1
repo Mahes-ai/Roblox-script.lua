@@ -1,0 +1,29 @@
+-- Simple Fake Gamepass Unlocker for Delta Mobile
+-- Fungsi: hapus popup beli & aktifkan fitur seolah sudah beli
+
+local plr = game:GetService("Players").LocalPlayer
+local char = plr.Character or plr.CharacterAdded:Wait()
+local hum = char:WaitForChild("Humanoid")
+
+-- 1. Hapus prompt beli
+spawn(function()
+	while true do
+		local gui = plr:FindFirstChild("PlayerGui"):FindFirstChild("PromptPurchase")
+		if gui then
+			gui:Destroy()
+			break
+		end
+		wait(0.2)
+	end
+end)
+
+-- 2. Aktifkan fitur 'premium'
+hum.WalkSpeed = 32
+hum.JumpPower = 70
+
+-- 3. Tambahkan tag fake
+local tag = Instance.new("BoolValue", plr)
+tag.Name = "FakeGamepass"
+tag.Value = true
+
+print("✅ Fake Gamepass aktif")
