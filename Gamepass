@@ -1,0 +1,112 @@
+-- ⚠️ Fake Gamepass Bypass (Client-Side) – For Testing Purposes Only
+-- ✅ Fungsi: Hapus popup beli, aktifkan fitur premium seolah beli gamepass
+-- 🛑 Tidak menyentuh sistem Robux dan tidak bisa beli pass asli
+-- 🧠 Untuk game yang tidak aman (tanpa verifikasi server)
+
+local Players = game:GetService("Players")
+local MarketplaceService = game:GetService("MarketplaceService")
+local StarterGui = game:GetService("StarterGui")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+
+-- 🔄 Cek dan hapus GUI Prompt
+spawn(function()
+	while true do
+		local gui = player:FindFirstChild("PlayerGui"):FindFirstChild("PromptPurchase")
+		if gui then
+			gui:Destroy()
+			warn("🔥 Prompt pembelian Gamepass dihapus!")
+
+			-- ✅ Aktifkan efek 'premium palsu'
+			local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+			if hum then
+				hum.WalkSpeed = 32
+				hum.JumpPower = 70
+			end
+
+			-- 🔁 Tambahkan tag khusus untuk keperluan lain
+			if not player:FindFirstChild("FakeGamepass") then
+				local tag = Instance.new("BoolValue", player)
+				tag.Name = "FakeGamepass"
+				tag.Value = true
+			end
+
+			-- 🔔 Notifikasi berhasil
+			StarterGui:SetCore("SendNotification", {
+				Title = "Fake Gamepass",
+				Text = "Fitur premium diaktifkan (simulasi)",
+				Duration = 4
+			})
+
+			break
+		end
+		wait(0.2)
+	end
+end)
+
+-- 🕹️ Fly Mode (aktif pakai tombol [F])
+local flying = false
+local bv = nil
+local speed = 3
+
+function startFly()
+	local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
+
+	bv = Instance.new("BodyVelocity", hrp)
+	bv.Name = "FlyBypass"
+	bv.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+	bv.Velocity = Vector3.zero
+
+	RunService.RenderStepped:Connect(function()
+		if flying and hrp and bv then
+			local dir = Vector3.new()
+			local cam = workspace.CurrentCamera
+
+			if UIS:IsKeyDown(Enum.KeyCode.W) then dir += cam.CFrame.LookVector end
+			if UIS:IsKeyDown(Enum.KeyCode.S) then dir -= cam.CFrame.LookVector end
+			if UIS:IsKeyDown(Enum.KeyCode.A) then dir -= cam.CFrame.RightVector end
+			if UIS:IsKeyDown(Enum.KeyCode.D) then dir += cam.CFrame.RightVector end
+			if UIS:IsKeyDown(Enum.KeyCode.Space) then dir += cam.CFrame.UpVector end
+			if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then dir -= cam.CFrame.UpVector end
+
+			if dir.Magnitude > 0 then
+				bv.Velocity = dir.Unit * speed
+			else
+				bv.Velocity = Vector3.zero
+			end
+		end
+	end)
+end
+
+function stopFly()
+	flying = false
+	if bv then bv:Destroy() end
+end
+
+UIS.InputBegan:Connect(function(key, gpe)
+	if gpe then return end
+	if key.KeyCode == Enum.KeyCode.F then
+		if flying then
+			stopFly()
+			StarterGui:SetCore("SendNotification", {
+				Title = "Fly Mode",
+				Text = "Fly OFF",
+				Duration = 2
+			})
+		else
+			flying = true
+			startFly()
+			StarterGui:SetCore("SendNotification", {
+				Title = "Fly Mode",
+				Text = "Fly ON (gunakan W A S D SPACE CTRL)",
+				Duration = 3
+			})
+		end
+	end
+end)
+
+-- 📌 Info tambahan
+warn("✅ Fake Gamepass Bypass Loaded - Tekan F untuk fly.")
