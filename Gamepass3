@@ -1,0 +1,43 @@
+-- Fake Gamepass GUI Button - Delta Mobile Compatible
+-- Buat niru beli gamepass pakai tombol di layar
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local StarterGui = game:GetService("StarterGui")
+local char = player.Character or player.CharacterAdded:Wait()
+local humanoid = char:WaitForChild("Humanoid")
+
+-- 🧱 UI Setup
+local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+gui.Name = "FakePassGUI"
+
+local button = Instance.new("TextButton", gui)
+button.Size = UDim2.new(0, 160, 0, 50)
+button.Position = UDim2.new(0.5, -80, 0.85, 0)
+button.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+button.TextColor3 = Color3.new(1,1,1)
+button.Text = "UNLOCK PREMIUM"
+button.Font = Enum.Font.SourceSansBold
+button.TextSize = 20
+
+-- 🔘 Saat diklik
+button.MouseButton1Click:Connect(function()
+	-- Hapus Prompt Gamepass kalau muncul
+	local prompt = player:FindFirstChild("PlayerGui"):FindFirstChild("PromptPurchase")
+	if prompt then prompt:Destroy() end
+
+	-- Aktifkan efek premium
+	humanoid.WalkSpeed = 35
+	humanoid.JumpPower = 75
+
+	-- Tambahkan tag
+	if not player:FindFirstChild("FakeGamepass") then
+		local tag = Instance.new("BoolValue", player)
+		tag.Name = "FakeGamepass"
+		tag.Value = true
+	end
+
+	-- Teks berubah
+	button.Text = "PREMIUM AKTIF ✅"
+	button.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+end)
