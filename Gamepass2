@@ -1,0 +1,34 @@
+-- Fake Gamepass Script - Universal Mobile Compatible
+-- Made for executor like Delta on mobile
+-- This script fakes the effect of owning a gamepass by bypassing prompt UI and applying effects
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local char = player.Character or player.CharacterAdded:Wait()
+local humanoid = char:WaitForChild("Humanoid")
+
+-- Remove Gamepass Prompt UI if it appears
+spawn(function()
+	while true do
+		local gui = player:FindFirstChild("PlayerGui"):FindFirstChild("PromptPurchase")
+		if gui then
+			gui:Destroy()
+			break
+		end
+		wait(0.2)
+	end
+end)
+
+-- Apply fake premium effects
+humanoid.WalkSpeed = 35
+humanoid.JumpPower = 75
+
+-- Add fake gamepass tag
+if not player:FindFirstChild("FakeGamepass") then
+	local tag = Instance.new("BoolValue", player)
+	tag.Name = "FakeGamepass"
+	tag.Value = true
+end
+
+-- Output
+print("✅ Fake Gamepass Active: Speed, Jump Boost Applied.")
