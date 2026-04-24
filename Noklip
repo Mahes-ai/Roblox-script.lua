@@ -1,0 +1,396 @@
+--// SIX Noclip Engine v2.0 - Universal Bypass
+--// Compatible: Synapse X, KRNL, Fluxus, Script-Ware, Electron
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local StarterGui = game:GetService("StarterGui")
+local TweenService = game:GetService("TweenService")
+
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+local Camera = workspace.CurrentCamera
+
+--// Configuration
+getgenv().SIX_Config = {
+    NoclipKey = Enum.KeyCode.N,
+    TransparencyMode = true, -- Visual ghost mode
+    AntiDetect = true,       -- Bypass client-side detection
+    ServerReplicate = true,  -- Fake replication packets
+    VelocitySpoof = true,    -- Spoof velocity to server
+    CollisionMode = "Full",  -- Full/Partial/Smart
+    FlyMode = false,         -- Optional fly integration
+    Speed = 50               -- Noclip movement speed
+}
+
+--// State Management
+local NoclipActive = false
+local NoclipConnection = nil
+local FakeCFrame = nil
+local OriginalCollisions = {}
+
+--// Anti-Detection Modules
+local AntiDetect = {}
+
+function AntiDetect.SpoofHumanoidState()
+    -- Spoof HumanoidState to prevent server detection
+    local mt = getrawmetatable(game)
+    local oldIndex = mt.__index
+    setreadonly(mt, false)
+    
+    mt.__index = newcclosure(function(t, k)
+        if t == Humanoid and k == "State" and NoclipActive then
+            return Enum.HumanoidStateType.Running
+        end
+        return oldIndex(t, k)
+    end)
+    
+    setreadonly(mt, true)
+end
+
+function AntiDetect.HookVelocity()
+    -- Spoof velocity to server to prevent speed checks
+    if not getgenv().SIX_Config.VelocitySpoof then return end
+    
+    local oldVelocity = HumanoidRootPart.Velocity
+    
+    RunService.Heartbeat:Connect(function()
+        if NoclipActive then
+            -- Set velocity to zero to prevent server-side detection
+            HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+            HumanoidRootPart.RotVelocity = Vector3.new(0, 0, 0)
+        end
+    end)
+end
+
+function AntiDetect.FakeReplication()
+    -- Send fake CFrame data to server
+    if not getgenv().SIX_Config.ServerReplicate then return end
+    
+    spawn(function()
+        while wait(0.1) do
+            if NoclipActive and FakeCFrame then
+                -- Fire fake movement events
+                local args = {
+                    [1] = FakeCFrame,
+                    [2] = tick()
+                }
+                
+                -- Hook into remote events if they exist
+                for _, v in pairs(game:GetDescendants()) do
+                    if v:IsA("RemoteEvent") and v.Name:lower():match("move") or v.Name:lower():match("replicate") then
+                        pcall(function()
+                            v:FireServer(unpack(args))
+                        end)
+                    end
+                end
+            end
+        end
+    end)
+end
+
+--// Collision Management
+local CollisionSystem = {}
+
+function CollisionSystem.SaveOriginal()
+    for _, part in pairs(Character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            OriginalCollisions[part] = part.CanCollide
+        end
+    end
+end
+
+function CollisionSystem.Disable()
+    for _, part in pairs(Character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = false
+            part.CanQuery = false -- New property bypass
+            part.CanTouch = false
+        end
+    end
+end
+
+function CollisionSystem.Restore()
+    for part, state in pairs(OriginalCollisions) do
+        if part and part.Parent then
+            part.CanCollide = state
+            part.CanQuery = true
+            part.CanTouch = true
+        end
+    end
+end
+
+function CollisionSystem.SmartMode()
+    -- Only disable collision with specific parts (walls, barriers)
+    for _, part in pairs(workspace:GetDescendants()) do
+        if part:IsA("BasePart") and not part:IsDescendantOf(Character) then
+            -- Check if part is likely a wall/barrier
+            if part.Size.Y > 10 or part.Name:lower():match("wall") or part.Name:lower():match("barrier") then
+                part.CanCollide = false
+            end
+        end
+    end
+end
+
+--// Visual System
+local VisualSystem = {}
+
+function VisualSystem.EnableGhost()
+    if not getgenv().SIX_Config.TransparencyMode then return end
+    
+    for _, part in pairs(Character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.Transparency = 0.5
+            part.Material = Enum.Material.ForceField
+        elseif part:IsA("Decal") or part:IsA("Texture") then
+            part.Transparency = 0.5
+        end
+    end
+end
+
+function VisualSystem.DisableGhost()
+    for _, part in pairs(Character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.Transparency = 0
+            part.Material = Enum.Material.Plastic
+        elseif part:IsA("Decal") or part:IsA("Texture") then
+            part.Transparency = 0
+        end
+    end
+end
+
+--// Movement System
+local MovementSystem = {}
+
+function MovementSystem.GetMoveVector()
+    local moveVector = Vector3.new(0, 0, 0)
+    
+    if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+        moveVector = moveVector + Camera.CFrame.LookVector
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+        moveVector = moveVector - Camera.CFrame.LookVector
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+        moveVector = moveVector - Camera.CFrame.RightVector
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+        moveVector = moveVector + Camera.CFrame.RightVector
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+        moveVector = moveVector + Vector3.new(0, 1, 0)
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+        moveVector = moveVector - Vector3.new(0, 1, 0)
+    end
+    
+    return moveVector.Unit * getgenv().SIX_Config.Speed
+end
+
+function MovementSystem.NoclipLoop()
+    NoclipConnection = RunService.Stepped:Connect(function()
+        if not NoclipActive then return end
+        
+        local moveVector = MovementSystem.GetMoveVector()
+        
+        if moveVector.Magnitude > 0 then
+            -- Calculate new position
+            local newCFrame = HumanoidRootPart.CFrame + moveVector
+            
+            -- Update fake CFrame for replication spoofing
+            FakeCFrame = newCFrame
+            
+            -- Apply movement
+            HumanoidRootPart.CFrame = newCFrame
+            
+            -- Spoof velocity
+            if getgenv().SIX_Config.VelocitySpoof then
+                HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+                HumanoidRootPart.RotVelocity = Vector3.new(0, 0, 0)
+            end
+        end
+        
+        -- Ensure collisions stay disabled
+        CollisionSystem.Disable()
+    end)
+end
+
+--// Main Toggle Function
+function ToggleNoclip()
+    NoclipActive = not NoclipActive
+    
+    if NoclipActive then
+        -- Save original states
+        CollisionSystem.SaveOriginal()
+        
+        -- Disable collisions
+        if getgenv().SIX_Config.CollisionMode == "Full" then
+            CollisionSystem.Disable()
+        elseif getgenv().SIX_Config.CollisionMode == "Smart" then
+            CollisionSystem.SmartMode()
+        end
+        
+        -- Enable visual effects
+        VisualSystem.EnableGhost()
+        
+        -- Start movement loop
+        MovementSystem.NoclipLoop()
+        
+        -- Initialize anti-detection
+        AntiDetect.SpoofHumanoidState()
+        AntiDetect.HookVelocity()
+        AntiDetect.FakeReplication()
+        
+        -- Notification
+        StarterGui:SetCore("SendNotification", {
+            Title = "SIX Engine",
+            Text = "Noclip: ENABLED",
+            Duration = 2,
+            Icon = "rbxassetid://12345678"
+        })
+    else
+        -- Stop movement loop
+        if NoclipConnection then
+            NoclipConnection:Disconnect()
+            NoclipConnection = nil
+        end
+        
+        -- Restore collisions
+        CollisionSystem.Restore()
+        
+        -- Disable visual effects
+        VisualSystem.DisableGhost()
+        
+        -- Reset velocity
+        HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+        
+        -- Notification
+        StarterGui:SetCore("SendNotification", {
+            Title = "SIX Engine",
+            Text = "Noclip: DISABLED",
+            Duration = 2
+        })
+    end
+end
+
+--// Input Handling
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == getgenv().SIX_Config.NoclipKey then
+        ToggleNoclip()
+    end
+end)
+
+--// Character Respawn Handler
+LocalPlayer.CharacterAdded:Connect(function(newChar)
+    Character = newChar
+    Humanoid = newChar:WaitForChild("Humanoid")
+    HumanoidRootPart = newChar:WaitForChild("HumanoidRootPart")
+    
+    -- Reinitialize if noclip was active
+    if NoclipActive then
+        wait(1) -- Wait for character to fully load
+        CollisionSystem.SaveOriginal()
+        CollisionSystem.Disable()
+        VisualSystem.EnableGhost()
+        MovementSystem.NoclipLoop()
+    end
+end)
+
+--// Advanced Bypass Techniques
+local BypassSystem = {}
+
+function BypassSystem.HookNamecall()
+    -- Hook remote calls to prevent server detection
+    local mt = getrawmetatable(game)
+    local oldNamecall = mt.__namecall
+    setreadonly(mt, false)
+    
+    mt.__namecall = newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        local args = {...}
+        
+        -- Intercept kick/ban remotes
+        if method == "FireServer" and self:IsA("RemoteEvent") then
+            if self.Name:lower():match("kick") or self.Name:lower():match("ban") or self.Name:lower():match("detect") then
+                return nil -- Block the remote
+            end
+        end
+        
+        -- Spoof position data in remote calls
+        if NoclipActive and method == "FireServer" and #args > 0 and typeof(args[1]) == "CFrame" then
+            args[1] = FakeCFrame or args[1]
+        end
+        
+        return oldNamecall(self, unpack(args))
+    end)
+    
+    setreadonly(mt, true)
+end
+
+function BypassSystem.HookKick()
+    -- Prevent client kicks
+    local oldKick = LocalPlayer.Kick
+    LocalPlayer.Kick = function(self, message)
+        if NoclipActive then
+            print("[SIX] Kick blocked:", message)
+            return nil
+        end
+        return oldKick(self, message)
+    end
+end
+
+function BypassSystem.SpoofNetwork()
+    -- Spoof network ownership
+    sethiddenproperty(HumanoidRootPart, "NetworkIsSleeping", false)
+    
+    -- Spoof ping data
+    local stats = game:GetService("Stats")
+    local networkStats = stats:FindFirstChild("Network")
+    if networkStats then
+        -- Hook network stats to show normal ping
+        local mt = getrawmetatable(networkStats)
+        local oldIndex = mt.__index
+        setreadonly(mt, false)
+        
+        mt.__index = function(t, k)
+            if k == "Ping" and NoclipActive then
+                return math.random(50, 120) -- Fake normal ping
+            end
+            return oldIndex(t, k)
+        end
+        
+        setreadonly(mt, true)
+    end
+end
+
+--// Initialize Bypasses
+BypassSystem.HookNamecall()
+BypassSystem.HookKick()
+BypassSystem.SpoofNetwork()
+
+--// Anti-AFK
+local VirtualUser = game:GetService("VirtualUser")
+LocalPlayer.Idled:Connect(function()
+    VirtualUser:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+    wait(1)
+    VirtualUser:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+end)
+
+--// Final Initialization
+print([[
+    ╔═══════════════════════════════════╗
+    ║     SIX Noclip Engine v2.0        ║
+    ║     Universal Bypass Loaded         ║
+    ╚═══════════════════════════════════╝
+    
+    Commands:
+    Press [N] to toggle noclip
+    Modify SIX_Config for customization
+]])
+
+--// Optional: Auto-enable on load
+-- ToggleNoclip()
+
+return getgenv().SIX_Config
